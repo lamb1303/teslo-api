@@ -12,6 +12,7 @@ import { ProductImage, Product } from './entities';
 import { DataSource, Repository } from 'typeorm';
 import { validate as isUUID } from 'uuid';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { User } from 'src/auth/entities/user.entity';
 
 @Injectable()
 export class ProductsService {
@@ -23,7 +24,7 @@ export class ProductsService {
     private readonly productImageRepository: Repository<ProductImage>,
     private readonly dataSource: DataSource,
   ) {}
-  async create(createProductDto: CreateProductDto) {
+  async create(createProductDto: CreateProductDto, user: User) {
     try {
       const { images = [], ...productDetails } = createProductDto;
       const product = this.productRepository.create({
@@ -31,6 +32,7 @@ export class ProductsService {
         images: images.map((image) =>
           this.productImageRepository.create({ url: image }),
         ),
+        user,
       });
       await this.productRepository.save(product);
       return { ...product, images };
@@ -39,7 +41,7 @@ export class ProductsService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto, user: User) {
     const { limit = 10, offset = 0 } = paginationDto;
     try {
       const products = await this.productRepository.find({
@@ -52,6 +54,7 @@ export class ProductsService {
       return products.map(({ images, ...rest }) => ({
         ...rest,
         images: images.map((img) => img.url),
+        user,
       }));
     } catch (error) {
       this.handleDBExceptions(error);
@@ -87,7 +90,8 @@ export class ProductsService {
       images: images.map((image) => image.url),
     };
   }
-  async update(id: string, updateProductDto: UpdateProductDto) {
+
+  async update(id: string, updateProductDto: UpdateProductDto, user: User) {
     const { images, ...toUpdate } = updateProductDto;
     const product = await this.productRepository.preload({
       id,
@@ -108,6 +112,7 @@ export class ProductsService {
           this.productImageRepository.create({ url: image }),
         );
       }
+      product.user = user;
 
       await queryRunner.manager.save(product);
 
